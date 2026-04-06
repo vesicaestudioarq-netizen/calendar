@@ -115,19 +115,15 @@
 <div id="app"></div>
 <div class="loading-overlay" id="loader" style="display:none">
   <div class="spinner"></div>
-  <p id="loaderMsg">Confirmando tu turno...</p>
+  <p id="loaderMsg">Cargando...</p>
 </div>
 
 <script>
-// ══════════════════════════════════════════════
-//  ⚙️  PEGÁ TU URL DEL SCRIPT DE GOOGLE AQUÍ
-// ══════════════════════════════════════════════
-const SCRIPT_URL = https://script.google.com/macros/s/AKfycbzNV58re4RZA1iwPiPHy44oDBw22G9OSQGGiV4M1sSfEJP-8XtypJ5LbamdGvnWFyDy/exec;
-// ══════════════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzQni7G_rNogZa_43W-Ow8UsVuJ6osAcZ23k4aYFZOOvsFMbFiLetQxmTkvKCR1rI5U/exec";
 
 const CONFIG = {
   duracion: 30,
-  email: "vesicaestudioarq@gmail.com",  // ← tu email
+  email: "hola@vesicaestudio.com",
   slots: {
     0:["09:00","10:00","11:00","14:00","15:00","16:00","17:00"],
     1:["09:00","10:00","11:00","14:00","15:00","16:00"],
@@ -149,15 +145,22 @@ const STEPS=['Datos','Preguntas','Fecha','Listo'];
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS=['Lu','Ma','Mi','Ju','Vi','Sá','Do'];
 
-// Carga los slots reservados desde Google Calendar al iniciar
+function loader(show, msg){
+  document.getElementById('loader').style.display = show ? 'flex' : 'none';
+  if(msg) document.getElementById('loaderMsg').textContent = msg;
+}
+
 async function cargarReservados() {
   try {
+    loader(true, 'Cargando disponibilidad...');
     const hoy = new Date().toISOString().slice(0,10);
-    const res  = await fetch(SCRIPT_URL + "?desde=" + hoy);
+    const res  = await fetch(SCRIPT_URL + "?desde=" + hoy, {redirect:'follow'});
     const data = await res.json();
-    if (data.ok) S.reservados = data.reservados || {};
+    if(data.ok) S.reservados = data.reservados || {};
   } catch(e) {
     console.warn("No se pudieron cargar reservados:", e);
+  } finally {
+    loader(false);
   }
 }
 
@@ -165,8 +168,7 @@ function calcScore(){
   let s=0;
   if(S.q1==='empresa')s+=30;else if(S.q1==='profesional')s+=20;else if(S.q1==='emprendedor')s+=15;else s+=5;
   if(S.q2==='inmediato')s+=30;else if(S.q2==='mes')s+=20;else if(S.q2==='trimestre')s+=10;
-  s+=Math.min(S.q3.length*10,20);
-  s+=(S.q5||0)*2;
+  s+=Math.min(S.q3.length*10,20);s+=(S.q5||0)*2;
   S.score=Math.min(s,100);
 }
 function scoreInfo(){
@@ -180,7 +182,7 @@ function buildGCalLink(){
   const end=new Date(start.getTime()+CONFIG.duracion*60000);
   const fmt=d=>d.toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
   const title=encodeURIComponent('Consulta inicial — '+S.nombre);
-  const details=encodeURIComponent('Consulta agendada desde el formulario.\nCliente: '+S.nombre+'\nEmail: '+S.email+'\nPuntaje: '+S.score+'/100 ('+scoreInfo().lbl+')');
+  const details=encodeURIComponent('Consulta agendada desde vesicaestudio.com\nCliente: '+S.nombre+'\nEmail: '+S.email+'\nPuntaje: '+S.score+'/100 ('+scoreInfo().lbl+')');
   return'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+title+'&dates='+fmt(start)+'/'+fmt(end)+'&details='+details+'&add='+encodeURIComponent(S.email)+'&add='+encodeURIComponent(CONFIG.email);
 }
 
@@ -228,31 +230,28 @@ function step2(){
     const tomados=S.reservados[S.fecha]||[];
     slotsHtml='<div style="margin-top:1.2rem"><p style="font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Horarios disponibles</p><div class="slots">'+avail.map(sl=>{const tk=tomados.includes(sl);return'<button class="slot '+(tk?'taken':'')+(S.slot===sl&&!tk?' sel':'')+'" '+(!tk?'data-slot="'+sl+'"':'')+'>'+sl+' hs</button>';}).join('')+'</div></div>';
   }
-  return'<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.2rem"><div class="card-title">Elegí tu turno</div><span class="badge '+si.cls+'">'+si.ico+' '+si.lbl+'</span></div><div class="card-sub">Consulta de '+CONFIG.duracion+' minutos · Online · Gratuita</div><div class="cal-nav"><button id="cprev">‹ Anterior</button><span class="cal-month">'+MESES[S.calMes]+' '+S.calAnio+'</span><button id="cnext">Siguiente ›</button></div><div class="cal-grid">'+DIAS.map(d=>'<div class="cal-hd">'+d+'</div>').join('')+cells.join('')+'</div>'+slotsHtml+'<div class="error-box" id="errBox">❌ No se pudo confirmar el turno. Por favor intentá de nuevo o contactanos directamente.</div><div class="btn-row"><button class="btn-b" id="b2">← Atrás</button><button class="btn-p" id="n2" '+(!S.fecha||!S.slot?'disabled':'')+'>Confirmar turno →</button></div></div>';
+  return'<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.2rem"><div class="card-title">Elegí tu turno</div><span class="badge '+si.cls+'">'+si.ico+' '+si.lbl+'</span></div><div class="card-sub">Consulta de '+CONFIG.duracion+' minutos · Online · Gratuita</div><div class="cal-nav"><button id="cprev">‹ Anterior</button><span class="cal-month">'+MESES[S.calMes]+' '+S.calAnio+'</span><button id="cnext">Siguiente ›</button></div><div class="cal-grid">'+DIAS.map(d=>'<div class="cal-hd">'+d+'</div>').join('')+cells.join('')+'</div>'+slotsHtml+'<div class="error-box" id="errBox">❌ No se pudo confirmar el turno. Por favor intentá de nuevo o escribinos directamente.</div><div class="btn-row"><button class="btn-b" id="b2">← Atrás</button><button class="btn-p" id="n2" '+(!S.fecha||!S.slot?'disabled':'')+'>Confirmar turno →</button></div></div>';
 }
 function step3(){
   const si=scoreInfo();
   const fechaLabel=S.fecha?new Date(S.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
-  return'<div class="card" style="text-align:center"><div class="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h2 class="card-title" style="text-align:center;margin-bottom:.3rem">¡Turno confirmado!</h2><p class="card-sub" style="text-align:center">Gracias '+esc(S.nombre)+', te esperamos en Vesica Estudio</p><div style="text-align:left;border:1px solid var(--border-lt);border-radius:10px;padding:1rem;margin:1.2rem 0"><div class="sum-row"><span class="sum-k">Nombre</span><span class="sum-v">'+esc(S.nombre)+'</span></div><div class="sum-row"><span class="sum-k">Email</span><span class="sum-v">'+esc(S.email)+'</span></div><div class="sum-row"><span class="sum-k">Fecha</span><span class="sum-v">'+fechaLabel+'</span></div><div class="sum-row"><span class="sum-k">Horario</span><span class="sum-v">'+S.slot+' hs (Argentina)</span></div><div class="sum-row"><span class="sum-k">Modalidad</span><span class="sum-v">Online · Google Meet</span></div><div class="sum-row"><span class="sum-k">Duración</span><span class="sum-v">'+CONFIG.duracion+' minutos</span></div><div class="sum-row"><span class="sum-k">Puntuación</span><span class="sum-v"><span class="badge '+si.cls+'">'+si.ico+' '+si.lbl+' · '+S.score+'/100</span></span></div></div><a class="gcal-btn" href="'+buildGCalLink()+'" target="_blank"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agregar a Google Calendar</a><div class="info-box">📋 <strong>Próximos pasos:</strong> Recibiste un email de confirmación con todos los detalles. El evento ya fue creado en el calendario de Vesica Estudio.</div></div>';
+  return'<div class="card" style="text-align:center"><div class="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h2 class="card-title" style="text-align:center;margin-bottom:.3rem">¡Turno confirmado!</h2><p class="card-sub" style="text-align:center">Gracias '+esc(S.nombre)+', te esperamos en Vesica Estudio</p><div style="text-align:left;border:1px solid var(--border-lt);border-radius:10px;padding:1rem;margin:1.2rem 0"><div class="sum-row"><span class="sum-k">Nombre</span><span class="sum-v">'+esc(S.nombre)+'</span></div><div class="sum-row"><span class="sum-k">Email</span><span class="sum-v">'+esc(S.email)+'</span></div><div class="sum-row"><span class="sum-k">Fecha</span><span class="sum-v">'+fechaLabel+'</span></div><div class="sum-row"><span class="sum-k">Horario</span><span class="sum-v">'+S.slot+' hs (Argentina)</span></div><div class="sum-row"><span class="sum-k">Modalidad</span><span class="sum-v">Online · Google Meet</span></div><div class="sum-row"><span class="sum-k">Duración</span><span class="sum-v">'+CONFIG.duracion+' minutos</span></div><div class="sum-row"><span class="sum-k">Puntuación</span><span class="sum-v"><span class="badge '+si.cls+'">'+si.ico+' '+si.lbl+' · '+S.score+'/100</span></span></div></div><a class="gcal-btn" href="'+buildGCalLink()+'" target="_blank"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agregar a Google Calendar</a><div class="info-box">📋 <strong>Próximos pasos:</strong> Recibiste un email de confirmación. El evento ya fue creado en el calendario de Vesica Estudio automáticamente.</div></div>';
 }
 
 async function confirmarTurno(){
-  const loader=document.getElementById('loader');
   const errBox=document.getElementById('errBox');
   if(errBox)errBox.style.display='none';
-  loader.style.display='flex';
-  document.getElementById('loaderMsg').textContent='Confirmando tu turno...';
+  loader(true,'Confirmando tu turno...');
   try{
     const payload={
-      nombre:S.nombre, email:S.email, tel:S.tel, empresa:S.empresa,
-      fecha:S.fecha, slot:S.slot, score:S.score,
-      q1:S.q1, q2:S.q2, q3:S.q3, q4:S.q4, q5:S.q5
+      nombre:S.nombre,email:S.email,tel:S.tel,empresa:S.empresa,
+      fecha:S.fecha,slot:S.slot,score:S.score,
+      q1:S.q1,q2:S.q2,q3:S.q3,q4:S.q4,q5:S.q5
     };
-    const res=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});
+    const res=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
     const data=await res.json();
-    loader.style.display='none';
+    loader(false);
     if(data.ok){
-      // Marcar slot como reservado localmente
       if(!S.reservados[S.fecha])S.reservados[S.fecha]=[];
       S.reservados[S.fecha].push(S.slot);
       S.step=3;render();
@@ -260,7 +259,7 @@ async function confirmarTurno(){
       if(errBox)errBox.style.display='block';
     }
   }catch(e){
-    loader.style.display='none';
+    loader(false);
     if(errBox)errBox.style.display='block';
   }
 }
@@ -287,7 +286,6 @@ function bind(){
   document.getElementById('n2')?.addEventListener('click',()=>confirmarTurno());
 }
 
-// Iniciar
 cargarReservados().then(()=>render());
 </script>
 </body>
